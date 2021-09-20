@@ -1,279 +1,387 @@
-/*
-  Variables:
-*/
+let game = null;
+let bestScore = 0;
+const scoreDiv = document.getElementById('score');
+const bestScoreDiv = document.getElementById('bestScore');
+const addDiv = document.getElementById('add');
+const endDiv = document.getElementById('end');
+const size = 4;
+let nextId = 1;
+let score = 0;
 
-$grid-max-width: 500px;
-$grid-padding: 8px;
-$grid-border-radius: 5px;
-// white
-$color-background: #f2efea;
-$color-accent1: #f9d49a;
-$color-accent2: #d4a8cf;
-$color-list: #00d0a4, #dd7373, #7d53de, #6622cc, #00bfb2, #c06ff2, #340068,
- #3e92cc, #d8315b, #1c0b19, #1c0b19;
-/**/
-
-*,
-*:before,
-*:after {
- box-sizing: border-box;
+function initGame() {
+  game = Array(size*size).fill(null); // 4 x 4 grid, represented as an array
+  initBestScore();
 }
 
-button,
-a {
- &:hover {
-  cursor: pointer;
- }
+function initBestScore() {
+  bestScore = localStorage.getItem('bestScore') || 0;
+  bestScoreDiv.innerHTML = bestScore;
 }
 
-.clearfix::after {
- content: "";
- display: block;
- clear: both;
+function updateDOM(before, after) {
+  const newElements = getNewElementsDOM(before, after);
+  const existingElements = getExistingElementsDOM(before, after);
+  const mergedTiles = getMergedTiles(after);
+  removeElements(mergedTiles);
+  drawGame(newElements, true);
+  drawGame(existingElements);
 }
 
-html {
- min-height: 100%;
- width: 100%;
- font-size: 16px;
- font-family: "Rubik", sans-serif;
- line-height: 1.5em;
- color: #fff;
- background: #160140;
- background: linear-gradient(to top, #160140, #261535);
-}
-
-.wrapper {
- max-width: $grid-max-width;
- margin: 0 auto;
- padding: 15px;
-}
-
-h2 {
- font-style: italic;
-}
-
-/* Introduction */
-
-.intro {
- margin-bottom: 60px;
- &_title {
-  text-align: center;
-  color: $color-accent1;
-  font-size: 3rem;
- }
-}
-
-/**/
-
-/* Guide instructions */
-
-.guide {
- border-bottom: 1px solid grey;
- &:first-of-type {
-  margin-top: 4rem;
-  border-top: 1px solid gray;
- }
- &_arrow {
-  display: inline-block;
-  margin: 15px;
-  font-size: 3rem;
-  color: #fff;
- }
-}
-
-.controls {
- &_game,
- &_score {
-  display: inline-block;
-  width: 50%;
-  float: left;
-  @media all and (max-width: 767px) {
-   width: 100%;
+function removeElements(mergedTiles) {
+  for (let tile of mergedTiles) {
+    for (let id of tile.mergedIds) {
+      const currentElm = document.getElementById(id);
+      positionTile(tile, currentElm);
+      currentElm.classList.add('tile--shrink');
+      setTimeout(() => {
+        currentElm.remove();
+      }, 100);
+    }
   }
- }
- &_game-btn {
-  margin-bottom: 1rem;
-  padding: 0.5em 0.75em;
-  background: transparent;
-  color: #f9d49a;
-  outline: 2px solid #f9d49a;
-  appearance: none;
-  border: 5px solid transparent;
-  box-shadow: inset 0 0 0px 2px #d4a8cf;
-  letter-spacing: 0.1em;
-  font-weight: bold;
-  text-transform: lowercase;
- }
- &_score {
-  display: inline-block;
-  min-width: 4em;
-  margin-bottom: 4rem;
-  padding: 0.5em 0.75em;
-  background: #0000003b;
-  text-align: center;
-  background: linear-gradient(90deg, #f9d49a, #d4a8cf);
-
-  &-label,
-  &-text {
-   display: inline-block;
-  }
-  &-label {
-   color: initial;
-  }
-  &-text {
-   color: #4a3647;
-   font-size: 2rem;
-  }
- }
 }
 
-/**/
-
-/*
-  Gameboard:
-  the container for the static grid background; and generated tiles/numbers;
-*/
-
-.gameboard {
- /* Position: relative; set for tile-container, which absolutely positions over it to match grid's dimensions; */
- position: relative;
- width: 100%;
- max-width: 500px;
- height: 100%;
- max-height: 500px;
- margin: auto;
- padding: $grid-padding;
- background: #ffffff08;
- border-radius: $grid-border-radius;
- box-shadow: 0 0 8px 0px $color-accent1;
- &::before {
-  content: "";
-  display: block;
-  padding-bottom: 100%;
- }
+function getMergedTiles(after) {
+  return after.filter((tile) => tile && tile.mergedIds);
 }
 
-/**/
-
-/*
-  Grid:
-  Creates the static grid background and individual grid cells;
-*/
-
-.grid {
- width: 100%;
- height: 100%;
- position: absolute;
- top: 0;
- bottom: 0;
- right: 0;
- left: 0;
- margin: auto;
- &_cell {
-  display: inline-block;
-  height: 25%;
-  width: 25%;
-  padding: $grid-padding;
-  float: left;
-  background: rgba(238, 228, 218, 0.35);
-  background-clip: content-box;
- }
+function getNewElementsDOM(before, after) {
+  const beforeIds = before.filter((tile) => tile).map((tile) => tile.id);
+  const newElements = after.filter((tile) => {
+    return tile && beforeIds.indexOf(tile.id) === -1;
+  });
+  return newElements;
 }
 
-/**/
+function getExistingElementsDOM(before, after) {
+  const beforeIds = before.filter((tile) => tile).map((tile) => tile.id);
+  const existingElements = after.filter((tile) => {
+    return tile && beforeIds.indexOf(tile.id) !== -1;
+  });
+  return existingElements;
+}
+
+function drawBackground() {
+  const tileContainer = document.getElementById('tile-container');
+  tileContainer.innerHTML = '';
+  for (let i = 0; i < game.length; i++) {
+    const tile = game[i];
+    const tileDiv = document.createElement('div');
+    const x = i % size;
+    const y = Math.floor(i / size);
+    tileDiv.style.top = `${y*100}px`;
+    tileDiv.style.left = `${x*100}px`;
+    
+    tileDiv.classList.add("background"); 
+    tileContainer.appendChild(tileDiv);
+  }
+}
+
+function positionTile(tile, elm) {
+  const x = tile.index % size;
+  const y = Math.floor(tile.index / size);
+  elm.style.top = `${y*100}px`;
+  elm.style.left = `${x*100}px`;
+}
+
+function drawGame(tiles, isNew) {
+  const tileContainer = document.getElementById('tile-container');
+  for (let i = 0; i < tiles.length; i++) {
+    const tile = tiles[i];
+    if (tile) {
+      if (isNew) {
+        const tileDiv = document.createElement('div');
+        positionTile(tile, tileDiv);
+        tileDiv.classList.add('tile', `tile--${tile.value}`);
+        tileDiv.id = tile.id;
+        setTimeout(() => {
+          tileDiv.classList.add("tile--pop");
+        }, tile.mergedIds ? 1 : 150);
+        tileDiv.innerHTML = `<p>${tile.value}</p>`;    
+        tileContainer.appendChild(tileDiv);
+      } else {
+        const currentElement = document.getElementById(tile.id);
+        positionTile(tile, currentElement);
+      }
+    }
+  }
+}
+
+function gameOver() {
+  if (game.filter((number)=>number===null).length === 0) {
+    const sameNeighbors = game.find((tile, i)=>{
+      const isRightSame = game[i+1] && (i+1)%4 !== 0 ? tile.value === game[i+1].value : false;
+      const isDownSame = game[i+4] ? tile.value === game[i+4].value : false;
+      if (isRightSame || isDownSame) {
+        return true;
+      }
+      return false;
+    });
+    return !sameNeighbors;
+  }
+}
+
+function generateNewNumber() {
+  // 0.9 probability of 2, 0.1 probability of 4
+  const p = Math.random() * 100;
+  return (p <= 90) ? 2 : 4;
+}
+
+function addRandomNumber() {
+  // Adds either a 2 or a 4 to an empty position in the game array
+  const emptyCells = game.map((_, index) => index)
+    .filter((index) => game[index] === null);
+  if (emptyCells.length === 0) { return; }
+  const newPos = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+  const newObj = {
+    id: nextId++,
+    index: newPos,
+    value: generateNewNumber()
+  };
+  game.splice(newPos, 1, newObj);
+}
+
+function getIndexForPoint(x, y) {
+  return y*size + x;
+}
+
+function reflectGrid(grid) {
+  let reflectedGame = Array(size*size).fill(0);
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const index1 = getIndexForPoint(col, row);
+      const index2 = getIndexForPoint(size-col-1, row);
+      reflectedGame[index1] = grid[index2];
+    }
+  }
+  return reflectedGame;
+} 
+
+function rotateLeft90Deg(grid) {
+  let rotatedGame = Array(size*size).fill(0);
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const index1 = getIndexForPoint(col, row);
+      const index2 = getIndexForPoint(size-1-row, col);
+      rotatedGame[index1] = grid[index2];
+    }
+  }
+  return rotatedGame;
+} 
+
+function rotateRight90Deg(grid) {
+  let rotatedGame = Array(size*size).fill(0);
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const index1 = getIndexForPoint(col, row);
+      const index2 = getIndexForPoint(row,size-1-col);
+      rotatedGame[index1] = grid[index2];
+    }
+  }
+  return rotatedGame;
+}
 
 /*
-  Tile container:
-  Contains the dynamically-generated tiles;
-  absolutely positioned over gameboard to match grid dimensions;
+For any cell whose neighbor to the right is empty, move that cell
+to the right. For any cell whose neighbor to the right is equal
+to the same value, combine the values together (e.g. 2+2 = 4)
 */
-
-.tile-container {
- /* absolutely positioned over gameboard to match dimensions */
- position: absolute;
- top: 0;
- left: 0;
- right: 0;
- bottom: 0;
- margin: auto;
- border-radius: $grid-border-radius;
+function shiftGameRight(gameGrid) {
+  // reflect game grid
+  let reflectedGame = reflectGrid(gameGrid);
+  // shift left
+  reflectedGame = shiftGameLeft(reflectedGame);
+  // reflect back
+  return reflectGrid(reflectedGame);
 }
 
-.tile {
- @extend .grid_cell; //display:table is used to vertically align number
- display: table;
- background: #eee4da;
- background-clip: content-box;
- position: absolute;
- z-index: 2;
- will-change: top, left;
- transition-property: top, left;
- transition-duration: 0.175s;
- transition-timing-function: ease-out;
-
- &.initialize {
-  animation-name: newTile;
-  animation-duration: 0.175s;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
- }
- @keyframes newTile {
-  0% {
-   opacity: 0;
+function shiftGameLeft(gameGrid) {
+  let newGameState = [];
+  let totalAdd = 0;
+  // for rows
+  for (let i = 0; i < size; i++) {
+    // for columns
+    const firstPos = 4*i;
+    const lastPos = (size)+4*i;
+    const currentRow = gameGrid.slice(firstPos,lastPos);
+    const filteredRow = currentRow.filter((row)=>row);
+    for (let row of filteredRow) {
+      delete row.mergedIds;
+    }
+    
+    for (let j = 0; j < filteredRow.length - 1; j++) {
+      if (filteredRow[j].value === filteredRow[j+1].value) {
+        const sum = filteredRow[j].value * 2;
+        filteredRow[j] = {
+          id: nextId++,
+          mergedIds: [filteredRow[j].id, filteredRow[j+1].id],
+          value: sum
+        };
+        filteredRow.splice(j+1,1);
+        score += sum;
+        totalAdd += sum;
+      }
+    }
+    while(filteredRow.length < size) {
+      filteredRow.push(null);
+    };
+    newGameState = [...newGameState, ...filteredRow];
   }
-  50% {
-   opacity: 0;
-   transform: scale(0);
+  
+  if (totalAdd > 0) {
+    scoreDiv.innerHTML = score;
+    addDiv.innerHTML = `+${totalAdd}`;
+    addDiv.classList.add('active');
+    setTimeout(function() {
+      addDiv.classList.remove("active");
+    }, 800); 
+    if (score > bestScore) {
+      localStorage.setItem('bestScore', score);
+      initBestScore();
+    }
   }
-  75% {
-   opacity: 1;
-   transform: scale(0.5);
-  }
-  100% {
-   opacity: 1;
-   transform: scale(1);
-  }
- }
- &_number {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: center;
-  font-size: 2rem;
-  font-weight: bold;
-  color: white;
- }
+  return newGameState;
 }
 
-@for $g from 1 through 16 {
- $h: $g + 1;
- .tile:nth-of-type(#{$g}) {
-  z-index: $h;
- }
+function shiftGameUp(gameGrid) {
+  let rotatedGame = rotateLeft90Deg(gameGrid);
+  rotatedGame = shiftGameLeft(rotatedGame);
+  return rotateRight90Deg(rotatedGame);
 }
 
-@for $i from 0 through 4 {
- @for $j from 0 through 4 {
-  $convertX: $i * (100 / 4);
-  $convertXstring: unquote("#{$convertX}" + "%");
-  $convertY: $j * (100 / 4);
-  $convertYstring: unquote("#{$convertY}" + "%");
-  .tile[data-x="#{$convertX}"][data-y="#{$convertY}"] {
-   top: $convertYstring;
-   left: $convertXstring;
+function shiftGameDown(gameGrid) {
+  let rotatedGame = rotateRight90Deg(gameGrid);
+  rotatedGame = shiftGameLeft(rotatedGame);
+  return rotateLeft90Deg(rotatedGame);
+}
+
+const buttons = document.querySelectorAll(".js-restart-btn");
+const length = buttons.length;
+for (let i = 0; i < length; i++) {
+    if (document.addEventListener) {
+        buttons[i].addEventListener("click", function() {
+            newGameStart();
+        });
+    } else {
+        buttons[i].attachEvent("onclick", function() {
+            newGameStart();
+        });
+    };
+};
+
+document.addEventListener("keydown", handleKeypress);
+document.addEventListener('touchstart', handleTouchStart, false);
+document.addEventListener('touchmove', handleTouchMove, false);
+
+let xDown = null;       
+let yDown = null;
+
+function handleTouchStart(evt) {
+  xDown = evt.touches[0].clientX;
+  yDown = evt.touches[0].clientY;     
+};                                                
+
+function handleTouchMove(evt) {
+  const prevGame = [...game];
+  if ( !xDown || !yDown ) {
+    return;
   }
- }
+  const xUp = evt.touches[0].clientX;
+  const yUp = evt.touches[0].clientY;
+
+  const xDiff = xDown - xUp;
+  const yDiff = yDown - yUp;
+
+  if ( Math.abs(xDiff) > Math.abs(yDiff) ) {
+    if ( xDiff > 0 ) {
+      game = shiftGameLeft(game);
+    } else {
+      game = shiftGameRight(game);
+    }                       
+  } else {
+    if ( yDiff > 0 ) {
+      game = shiftGameUp(game);
+    } else { 
+      game = shiftGameDown(game);
+    }                                                                 
+  }
+  game = game.map((tile, index) => {
+    if (tile) {
+      return {
+        ...tile,
+        index
+      };
+    } else {
+      return null;
+    }
+  });
+  if (_.isEqual(prevGame, game)) return;
+  addRandomNumber();
+  updateDOM(prevGame, game);
+  if (gameOver()) {
+    setTimeout(() => {
+      endDiv.classList.add('active');
+    }, 800);
+    return;
+  }
+  xDown = null;
+  yDown = null;                                             
+};
+
+function handleKeypress(evt) {
+  var modifiers = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+  var whichKey= event.which;
+  
+  const prevGame = [...game];
+  
+  if (!modifiers) {
+    event.preventDefault();
+    switch (whichKey) {
+      case 37:
+        game = shiftGameLeft(game);
+        break;
+      case 38:
+        game = shiftGameUp(game);
+        break;
+      case 39:
+        game = shiftGameRight(game);
+        break;
+      case 40:
+        game = shiftGameDown(game);
+        break;
+    }
+    game = game.map((tile, index) => {
+      if (tile) {
+        return {
+          ...tile,
+          index
+        };
+      } else {
+        return null;
+      }
+    });
+    if (_.isEqual(prevGame, game)) return;
+    addRandomNumber();
+    updateDOM(prevGame, game);
+    if (gameOver()) {
+      setTimeout(() => {
+        endDiv.classList.add('active');
+      }, 800);
+      return;
+    }
+  }
 }
 
-$i: 2;
-$listCounter: 1;
-// increment by * 2 until 2048
-@while $i <=2048 {
- .tile_number[data-value="#{$i}"] {
-  background: nth($color-list, $listCounter);
-  color: #fff;
-  box-shadow: 0 0 1px 1px nth($color-list, $listCounter);
- }
- $i: $i * 2;
- $listCounter: $listCounter+1;
+function newGameStart() {
+  document.getElementById('tile-container').innerHTML = '';
+  endDiv.classList.remove('active');
+  score = 0;
+  scoreDiv.innerHTML = score;
+  initGame();
+  drawBackground();
+  const previousGame = [...game];
+  addRandomNumber();
+  addRandomNumber();
+  updateDOM(previousGame, game);
 }
+
+newGameStart();
